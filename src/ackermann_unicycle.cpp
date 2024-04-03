@@ -3,8 +3,9 @@
 
 
 AckermannUnicycle::AckermannUnicycle() : nh_("~"), x_(0), y_(0), z_(0), theta_(0) {
-    nh_.getParam("velocity", velocity_);
-    nh_.getParam("angular_velocity", angular_velocity_);
+    
+    this->velocity_ = 0.2;
+    this->angular_velocity_ = 0.1;
 
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_1", 50);
 }
@@ -21,7 +22,7 @@ void AckermannUnicycle::publishOdometry() {
     // Publish odometry message
 
     this->odom_msg.header.stamp = ros::Time::now();
-    this->odom_msg.header.frame_id = "odom";
+    this->odom_msg.header.frame_id = "map";
     this->odom_msg.child_frame_id = "base_link";
 
     // Position
