@@ -5,20 +5,31 @@ AckermannUnicycle::AckermannUnicycle() : nh_("~"), x_(0), y_(0), z_(0), theta_(0
     
     this->velocity_ = 0.3;
     this->angular_velocity_ = 0;
-    this->time = 0;
+    //this->time = 0;
 
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_1", 50);
+
+    this->acc_clock = 0;
+    this->acc_switch = 0;
 }
 
 void AckermannUnicycle::publishOdometry() {
     double dt = 0.1; // time step
-    this->time += dt;
     
-    
+    //this->time += dt;
 
-    if (10 <= this->time && this->time <= 25) this->angular_velocity_= 0.2;
-    else if (25 <= this->time && this->time <= 35)  this->angular_velocity_ = -0.2;
-    else this->angular_velocity_ = 0.1;
+    this->acc_clock += dt;
+    
+    //ACCELERATION CONTROLLER
+    if (this->acc_clock > 1.0 && int(this->acc_clock) % 10 == 0) {
+        this->acc_switch = !this->acc_switch;
+        this->acc_clock = 0;}
+    
+    std::cout << this->acc_switch << std::endl;
+
+    if (this->acc_switch) this->angular_velocity_= 0.2;
+    else this->angular_velocity_= -0.2;
+
 
     angular_velocity_ = this->angular_velocity_;
 
@@ -84,7 +95,7 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
     // Apply transformation to the odometry message
     // For demonstration, let's just apply a translation of 1 unit in the x-axis
     
-    Eigen::Vector3d transl(0.1, -1.2, 0);
+    Eigen::Vector3d transl(0.1, 1.2, 0);
 
     Eigen::Quaterniond quat;
     quat.x() = 0;
@@ -94,23 +105,24 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
 
 
     Eigen::Affine3d transformation;
-    transformation.translation() = preRot.linear() * transl;
-    transformation.linear() = quat.toRotationMatrix();
+    transformation.translation() = transl ;
+    transformation.linear() = preRot.linear();
 
     // Convert geometry_msgs::Pose to Eigen::Affine3d
     Eigen::Vector3d translation_fromMsg(odom_msg.pose.pose.position.x,
-                                     odom_msg.pose.pose.position.y,
-                                     odom_msg.pose.pose.position.z);
-    Eigen::Quaterniond orientation_fromMsg(odom_msg.pose.pose.orientation.w,
-                                   odom_msg.pose.pose.orientation.x,
-                                   odom_msg.pose.pose.orientation.y,
-                                   odom_msg.pose.pose.orientation.z);
+                                        odom_msg.pose.pose.position.y,
+                                        odom_msg.pose.pose.position.z);
+
+    Eigen::Quaterniond orientation_fromMsg( odom_msg.pose.pose.orientation.w,
+                                            odom_msg.pose.pose.orientation.x,
+                                            odom_msg.pose.pose.orientation.y,
+                                            odom_msg.pose.pose.orientation.z);
     Eigen::Affine3d pose_affine;
     pose_affine.translation() = translation_fromMsg;
     pose_affine.linear() = orientation_fromMsg.toRotationMatrix();
 
     // Apply transformation
-    Eigen::Affine3d transformed_pose_affine = transformation * pose_affine;
+    Eigen::Affine3d transformed_pose_affine = pose_affine * transformation;
 
     // Convert back to geometry_msgs::Pose
     geometry_msgs::Pose transformed_pose_msg;
