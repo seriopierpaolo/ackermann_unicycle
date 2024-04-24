@@ -3,11 +3,11 @@
 
 AckermannUnicycle::AckermannUnicycle() : nh_("~"), x_(0), y_(0), z_(0), theta_(0) {
     
-    this->velocity_ = 0.3;
+    this->velocity_ = 1;
     this->angular_velocity_ = 0;
     //this->time = 0;
 
-    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_1", 50);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_1", 1);
 
     this->acc_clock = 0;
     this->acc_switch = 0;
@@ -20,17 +20,24 @@ void AckermannUnicycle::publishOdometry() {
 
     this->acc_clock += dt;
     
+    std::srand( (unsigned)time( NULL ) );
+
     //ACCELERATION CONTROLLER
     if (this->acc_clock > 1.0 && int(this->acc_clock) % 10 == 0) {
         this->acc_switch = !this->acc_switch;
-        this->acc_clock = 0;}
+        this->acc_clock = 0;
+        }
     
-    std::cout << this->acc_switch << std::endl;
+    //std::cout << this->acc_switch << std::endl;
 
-    if (this->acc_switch) this->angular_velocity_= 0.2;
-    else this->angular_velocity_= -0.2;
+    if (this->acc_switch) this->angular_velocity_= 0.6*(float) rand()/RAND_MAX;
+    else this->angular_velocity_= - 0.8*(float) rand()/RAND_MAX ;
+    
 
+    //if (this->acc_switch) this->angular_velocity_= 0.2;
+    //else this->angular_velocity_= -0.2 ;
 
+    //std::cout<<theta_<<std::endl;
     angular_velocity_ = this->angular_velocity_;
 
 
@@ -76,37 +83,30 @@ nav_msgs::Odometry AckermannUnicycle::getLatestOdometry() {
 
 
 TransformedOdometryPublisher::TransformedOdometryPublisher(AckermannUnicycle& ackermann_unicycle) : nh_("~"), ackermann_unicycle_(ackermann_unicycle) {
-    transformed_odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_2", 50);
+    transformed_odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom_2", 1);
 }
 
 void TransformedOdometryPublisher::publishTransformedOdometry() {
     // Get the latest odometry message from AckermannUnicycle
     nav_msgs::Odometry odom_msg = this->ackermann_unicycle_.getLatestOdometry();
-
-    Eigen::Quaterniond pre_q;
-
-    pre_q.x() = 0.0;
-    pre_q.y() = 0.0;
-    pre_q.z() = sin(this->ackermann_unicycle_.theta_angle / 2.0);
-    pre_q.w() = cos(this->ackermann_unicycle_.theta_angle / 2.0);
     
-    Eigen::Affine3d preRot;
-    preRot.linear() = pre_q.toRotationMatrix();
-    // Apply transformation to the odometry message
-    // For demonstration, let's just apply a translation of 1 unit in the x-axis
-    
-    Eigen::Vector3d transl(0.1, 1.2, 0);
+    Eigen::Vector3d des_transl( 0.132, 1.557, 0);
+/*
+    Eigen::Quaterniond des_quat;
+    des_quat.x() = 0;
+    des_quat.y() = 0;
+    des_quat.z() = -0.9880316;//sin(3.14 / 2.0);
+    des_quat.w() = 0.1542514;//cos(3.14 / 2.0);
+*/
+    Eigen::Quaterniond des_quat;
+    des_quat.x() = 0;
+    des_quat.y() = 0;
+    des_quat.z() = 1;//sin(3.14 / 2.0);
+    des_quat.w() = 0;//cos(3.14 / 2.0);
 
-    Eigen::Quaterniond quat;
-    quat.x() = 0;
-    quat.y() = 0;
-    quat.z() = 0;//sin(3.14 / 2.0);
-    quat.w() = 1;//cos(3.14 / 2.0);
-
-
-    Eigen::Affine3d transformation;
-    transformation.translation() = transl ;
-    transformation.linear() = preRot.linear();
+    Eigen::Affine3d des_transf;
+    des_transf.translation() = des_transl;
+    des_transf.linear() = des_quat.toRotationMatrix();
 
     // Convert geometry_msgs::Pose to Eigen::Affine3d
     Eigen::Vector3d translation_fromMsg(odom_msg.pose.pose.position.x,
@@ -122,7 +122,9 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
     pose_affine.linear() = orientation_fromMsg.toRotationMatrix();
 
     // Apply transformation
-    Eigen::Affine3d transformed_pose_affine = pose_affine * transformation;
+    Eigen::Affine3d transformed_pose_affine = pose_affine;
+
+    transformed_pose_affine = des_transf.inverse() * pose_affine * des_transf;
 
     // Convert back to geometry_msgs::Pose
     geometry_msgs::Pose transformed_pose_msg;
