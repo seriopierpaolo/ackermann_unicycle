@@ -19,6 +19,8 @@ public:
     nav_msgs::Odometry odom_msg;
     double theta_angle;
 
+    double noise_magnitude;
+
 private:
     ros::NodeHandle nh_;
     ros::Publisher odom_pub_;
@@ -28,6 +30,8 @@ private:
     double velocity_, angular_velocity_; // control inputs
     bool acc_switch; //angular acceleration sign controller
     double acc_clock;
+
+    
     
 };
 

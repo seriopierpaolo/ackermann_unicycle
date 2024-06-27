@@ -1,4 +1,5 @@
 #include <ackermann_unicycle/ackermann_unicycle.h>
+#include <random> // Include this for random number generation
 
 
 AckermannUnicycle::AckermannUnicycle() : nh_("~"), x_(0), y_(0), z_(0), theta_(0) {
@@ -11,6 +12,8 @@ AckermannUnicycle::AckermannUnicycle() : nh_("~"), x_(0), y_(0), z_(0), theta_(0
 
     this->acc_clock = 0;
     this->acc_switch = 0;
+
+    this->noise_magnitude = 0.2;
 }
 
 void AckermannUnicycle::publishOdometry() {
@@ -49,20 +52,33 @@ void AckermannUnicycle::publishOdometry() {
     this->theta_angle = theta_;
     // Publish odometry message
 
+    // Add white noise to the position
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution(-this->noise_magnitude, this->noise_magnitude);
+    double noise_x = distribution(generator);
+    double noise_y = distribution(generator);
+
     this->odom_msg.header.stamp = ros::Time::now();
     this->odom_msg.header.frame_id = "map";
     this->odom_msg.child_frame_id = "map";
 
+    /*
     // Position
     this->odom_msg.pose.pose.position.x = x_;
     this->odom_msg.pose.pose.position.y = y_;
+    this->odom_msg.pose.pose.position.z = z_;
+    */
+
+    // Position with noise
+    this->odom_msg.pose.pose.position.x = x_ + noise_x;
+    this->odom_msg.pose.pose.position.y = y_ + noise_y;
     this->odom_msg.pose.pose.position.z = z_;
 
     // Orientation
     geometry_msgs::Quaternion odom_quat;
     odom_quat.x = 0.0;
     odom_quat.y = 0.0;
-    odom_quat.z = sin(theta_ / 2.0);
+    odom_quat.z = sin(theta_ / 2.0); //odom_quat.z = sin(theta_ / 2.0);
     odom_quat.w = cos(theta_ / 2.0);
     odom_msg.pose.pose.orientation = odom_quat;
 
@@ -90,7 +106,7 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
     // Get the latest odometry message from AckermannUnicycle
     nav_msgs::Odometry odom_msg = this->ackermann_unicycle_.getLatestOdometry();
     
-    Eigen::Vector3d des_transl( 0.132, 1.557, 0);
+    Eigen::Vector3d des_transl( 0.132, 1.557, 0.0);
 /*
     Eigen::Quaterniond des_quat;
     des_quat.x() = 0;
@@ -101,8 +117,8 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
     Eigen::Quaterniond des_quat;
     des_quat.x() = 0;
     des_quat.y() = 0;
-    des_quat.z() = 1;//sin(3.14 / 2.0);
-    des_quat.w() = 0;//cos(3.14 / 2.0);
+    des_quat.z() = 0;//sin(3.14 / 2.0);
+    des_quat.w() = 1;//cos(3.14 / 2.0);
 
     Eigen::Affine3d des_transf;
     des_transf.translation() = des_transl;
@@ -137,6 +153,15 @@ void TransformedOdometryPublisher::publishTransformedOdometry() {
     transformed_pose_msg.orientation.y = transformed_orientation.y();
     transformed_pose_msg.orientation.z = transformed_orientation.z();
 
+
+    // Add white noise to the transformed position
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution(-this->ackermann_unicycle_.noise_magnitude, this->ackermann_unicycle_.noise_magnitude);
+    double noise_x = distribution(generator);
+    double noise_y = distribution(generator);
+    
+    transformed_pose_msg.position.x += noise_x;
+    transformed_pose_msg.position.y += noise_y;
     // Update the odometry message with the transformed pose
     odom_msg.pose.pose = transformed_pose_msg;
 
